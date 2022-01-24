@@ -1,0 +1,47 @@
+---
+title: "Problem Set 1"
+author: "Jingpeng Hong"
+date: "Jan 24, 2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question 1
+1.a. With the Bonferroni correction, we will reject the null when p-value is less than $\alpha/p$. Hence the probability of false rejection of the joint null is:
+$$P=1-(\alpha/p)^p$$
+Given the critical level $\alpha = 0.95$
+```{r q1.a}
+p=seq(1, 20, by=1)
+plot(p, 1-(1-0.05/p)**p,
+main="The Sine Function",
+ylab="sin(x)",
+type="l",
+col="blue")
+```
+
+## Question 2
+2.a. Download the data set Hitters from the ISLR library.
+2.b. Divide the dataset into a training set and a test set.
+```{r q2.b}
+library(ISLR)
+Hitters=na.omit(Hitters) # omit the observations with missing values
+set.seed(1)
+train=sample(c(TRUE,FALSE), size=nrow(Hitters), rep=TRUE, prob=c(0.7,0.3)) # train/test=7/3
+test=(!train)
+```
+2.c. Select the model made of the 7 coefficients.
+
+**2.d. Select the best model made of 7 coefficients according to the forward stepwise selection procedure.**
+```{r q2.d}
+library(leaps)
+regfit.train.fwd=regsubsets(Salary~.,data=Hitters[train,], nvmax=7, method="forward")
+summary(regfit.train.fwd)
+```
+
+
+
+
+
