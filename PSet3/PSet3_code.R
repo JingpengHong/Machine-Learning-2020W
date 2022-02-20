@@ -8,6 +8,8 @@
 library(leaps)
 library(ggplot2)
 library(glmnet)
+library(ISLR)
+library(tree)
 setwd("/Users/hongjingpeng/Desktop/Machine\ Learning/Machine-Learning-2022W/PSet3")
 
 ##################
@@ -130,3 +132,42 @@ cv.out.f = cv.glmnet(X, yf, alpha=1)
 bestlam.f = cv.out.f$lambda.min
 lasso.mod.f = glmnet(X, yf, alpha=1, lambda=bestlam.f)
 coef(lasso.mod.f)
+
+
+##################
+## Chapter 8 Q3 ##
+##################
+
+x = seq(0, 1, .01)
+G =  2*x*(1-x)
+D = -x*log(x)-(1-x)*log(1-x)
+E = 1-(x*(x > 0.5)+(1-x)*(x <= 0.5))
+
+data = data.frame(x, G, D, E)
+ggplot(data=data, aes(x=x))+
+  geom_line(aes(y=G, col='G'))+
+  geom_line(aes(y=D, col='D'))+
+  geom_line(aes(y=E, col='E'))+
+  xlab("p")+
+  ylab("Criterion")+
+  scale_color_hue("", labels = c(G="Gini index", D="Entropy", E="Classification error"))+ 
+  theme(legend.position = "bottom", legend.box = "horizontal")
+ggsave("output/ch8q3.png", width = 6, height = 4, dpi = 300)
+
+##################
+## Chapter 8 Q8 ##
+##################
+
+# a. Split the data set into a training set and a test set.
+set.seed(1)
+train=sample(1:nrow(Carseats), 200)
+Carseats.train=Carseats[train,]
+Carseats.test=Carseats[-train,]
+
+tree.carseats=tree(Sales~., Carseats.train)
+summary(tree.carseats)
+plot(tree.carseats)
+text(tree.carseats,pretty=0)
+
+
+
