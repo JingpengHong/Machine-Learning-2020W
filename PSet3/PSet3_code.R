@@ -12,6 +12,7 @@ library(ISLR)
 library(tree)
 library(gbm)
 library(randomForest)
+library(glmnet)
 rm(list=ls())
 setwd("/Users/hongjingpeng/Desktop/Machine\ Learning/Machine-Learning-2022W/PSet3")
 
@@ -135,7 +136,6 @@ cv.out.f = cv.glmnet(X, yf, alpha=1)
 bestlam.f = cv.out.f$lambda.min
 lasso.mod.f = glmnet(X, yf, alpha=1, lambda=bestlam.f)
 coef(lasso.mod.f)
-
 
 ##################
 ## Chapter 8 Q3 ##
@@ -319,10 +319,25 @@ ggplot(data = mse.plot, aes(x=lambda))+
   theme(legend.position = "bottom", legend.box = "horizontal")
 ggsave("output/ch8q10_cd.png", width = 6, height = 4, dpi = 300)
 
+# e. apply two of the regression approaches seen in Chapters 3 and 6
+# linear regression
+lm.Hitters = lm(Salary~., data = Hitters.train)
+yhat.lm = predict(lm.Hitters, newdata = Hitters.test)
+mse.test.lm = mean((yhat.lm - Hitters.test$Salary)^2)
+
+# Lasso
+x = model.matrix(Salary~., data = Hitters.train)
+x.test = model.matrix(Salary~., data = Hitters.test)
+lasso.Hitters = glmnet(x, Hitters.train$Salary, alpha = 1)
+yhat.lasso = predict(lasso.Hitters, newx = x.test)
+mse.test.lasso = mean((yhat.lasso - Hitters.test$Salary)^2)
+
 # f. the most important predictors in the boosted model
 lambda[which.min(mse.test)]
 boost.Hitters = gbm(Salary~., data = Hitters.train, distribution = 'gaussian',
                     n.trees = 1000, interaction.depth = 1, shrinkage = lambda[which.min(mse.test)])
+yhat.boost = predict(boost.Hitters, newdata = Hitters.test)
+mse.test.boost = mean((yhat.boost - Hitters.test$Salary)^2)
 png(file="output/ch8q10_f.png", width=1600, height=1600, res=300)
 summary(boost.Hitters)
 dev.off()
