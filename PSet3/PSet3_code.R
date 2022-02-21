@@ -10,6 +10,7 @@ library(ggplot2)
 library(glmnet)
 library(ISLR)
 library(tree)
+rm(list=ls())
 setwd("/Users/hongjingpeng/Desktop/Machine\ Learning/Machine-Learning-2022W/PSet3")
 
 ##################
@@ -160,14 +161,71 @@ ggsave("output/ch8q3.png", width = 6, height = 4, dpi = 300)
 
 # a. Split the data set into a training set and a test set.
 set.seed(1)
-train=sample(1:nrow(Carseats), 200)
+train=sample(1:nrow(Carseats), nrow(Carseats)/2)
 Carseats.train=Carseats[train,]
 Carseats.test=Carseats[-train,]
 
-tree.carseats=tree(Sales~., Carseats.train)
+# b
+# Fit a regression tree to the training set.
+tree.carseats = tree(Sales~., Carseats.train)
 summary(tree.carseats)
+# Plot the tree
+png(file="output/ch8q8_b.png", width=2000, height=1000, res=128)
 plot(tree.carseats)
 text(tree.carseats,pretty=0)
+dev.off()
+# Estimate the test error
+tree.pred = predict(tree.carseats, newdata=Carseats.test)
+mean((tree.pred-Carseats.test$Sales)^2)
+
+# c. cross-validation
+cv.carseats = cv.tree(tree.carseats)
+plot(cv.carseats$size, cv.carseats$dev, type='b')
+
+##################
+## Chapter 8 Q9 ##
+##################
+
+# a. Split the data set into a training set and a test set.
+set.seed(1)
+train=sample(1:nrow(OJ), 800)
+OJ.train=OJ[train,]
+OJ.test=OJ[-train,]
+
+# b. Fit a tree to the training data.
+tree.OJ = tree(Purchase~., OJ.train)
+summary(tree.OJ)
+
+# c. Type in the name of the tree object in order to get a detailed text output.
+tree.OJ
+
+# d. Create a plot of the tree.
+png(file="output/ch8q9_d.png", width=2000, height=800, res=128)
+plot(tree.OJ)
+text(tree.OJ, pretty=0)
+dev.off()
+
+# e. Predict on the test data
+OJ.pred = predict(tree.OJ, newdata=OJ.test, type='class')
+table(OJ.pred, OJ.test$Purchase) # confusion matrix
+error.test = mean(OJ.pred != OJ.test$Purchase) # test error rate
+
+# f. determine the optimal tree size
+cv.OJ = cv.tree(tree.OJ, FUN=prune.misclass)
+cv.OJ
+
+# g. Produce a plot with tree size on the x and cross-validated classification error rate on the y
+png(file="output/ch8q9_g.png", width=2000, height=1000, res=128)
+plot(cv.OJ$size, cv.OJ$dev, type="b", col='red', xlab="Tree size", ylab="CV Classification Error")
+dev.off()
+
+
+
+
+
+
+
+
 
 
 
