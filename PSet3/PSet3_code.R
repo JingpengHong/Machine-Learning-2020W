@@ -10,6 +10,7 @@ library(ggplot2)
 library(glmnet)
 library(ISLR)
 library(tree)
+library(gbm)
 rm(list=ls())
 setwd("/Users/hongjingpeng/Desktop/Machine\ Learning/Machine-Learning-2022W/PSet3")
 
@@ -218,6 +219,99 @@ cv.OJ
 png(file="output/ch8q9_g.png", width=2000, height=1000, res=128)
 plot(cv.OJ$size, cv.OJ$dev, type="b", col='red', xlab="Tree size", ylab="CV Classification Error")
 dev.off()
+
+# i. produce a pruned tree
+prune.OJ=prune.misclass(tree.OJ, best=7) 
+summary(prune.OJ)
+png(file="output/ch8q9_i.png", width=2000, height=800, res=128)
+plot(prune.OJ)
+text(prune.OJ, pretty=0)
+dev.off()
+
+# k. Compare the test error rates
+OJ.prune.pred=predict(prune.OJ, newdata=OJ.test,type="class") 
+table(OJ.prune.pred, OJ.test$Purchase)
+error.prune.test = mean(OJ.prune.pred != OJ.test$Purchase) # test error rate
+
+
+
+
+
+
+
+
+
+
+
+
+###################
+## Chapter 8 Q10 ##
+###################
+
+# a.
+Hitters = na.omit(Hitters) # Remove the observations for whom the salary is NA
+Hitters$lgSalary = log(Hitters$Salary) # log-transform the salaries
+
+# b.
+Hitters.train = Hitters[1:200,] # training set with first 200 observations
+Hitters.test = Hitters[201:nrow(Hitters),] # test set with the remaining observations.
+
+# c-d. 
+set.seed(1)
+lambda = 10^seq(-4, -1, by=0.1)
+mse.train = rep(0, length(lambda))
+mse.test = rep(0, length(lambda))
+
+# boosting with different shrinkage parameter.
+for (i in 1:length(lambda)){
+  
+  boost.Hitters = gbm(Salary~., data = Hitters.train, distribution = 'gaussian',
+                    n.trees = 1000, interaction.depth = 1, shrinkage = lambda[i])
+  yhat.train = predict(boost.Hitters, Hitters.train, n.trees = 1000)
+  mse.train[i] = mean((yhat.train-Hitters.train$Salary)^2)
+  yhat.test = predict(boost.Hitters, Hitters.test, n.trees = 1000)
+  mse.test[i] = mean((yhat.test-Hitters.test$Salary)^2)
+  
+}
+
+# plot shrinkage values and training/test set MSE
+mse.plot = data.frame(lambda, mse.train, mse.test)
+ggplot(data = mse.plot, aes(x=lambda))+
+  geom_line(aes(y=mse.train, color='train'))+
+  geom_point(aes(y=mse.train, color='train'), shape=1)+
+  geom_line(aes(y=mse.test, color='test'))+
+  geom_point(aes(y=mse.test, color='test'), shape=1)+
+  ylab('MSE')+
+  xlab('Shrinkage values')+
+  scale_color_hue("", labels = c(train="training set MSE", test="test set MSE"))+
+  theme(legend.position = "bottom", legend.box = "horizontal")
+ggsave("output/ch8q10_cd.png", width = 6, height = 4, dpi = 300)
+
+# f. the most important predictors in the boosted model
+lambda[which.min(mse.test)]
+boost.Hitters = gbm(Salary~., data = Hitters.train, distribution = 'gaussian',
+                    n.trees = 1000, interaction.depth = 1, shrinkage = lambda[which.min(mse.test)])
+png(file="output/ch8q10_f.png", width=1600, height=1600, res=300)
+summary(boost.Hitters)
+dev.off()
+
+# g. bagging 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
