@@ -11,6 +11,7 @@ library(glmnet)
 library(ISLR)
 library(tree)
 library(gbm)
+library(randomForest)
 rm(list=ls())
 setwd("/Users/hongjingpeng/Desktop/Machine\ Learning/Machine-Learning-2022W/PSet3")
 
@@ -181,7 +182,47 @@ mean((tree.pred-Carseats.test$Sales)^2)
 
 # c. cross-validation
 cv.carseats = cv.tree(tree.carseats)
-plot(cv.carseats$size, cv.carseats$dev, type='b')
+cv.carseats
+png(file="output/ch8q8_c.png", width=2000, height=1000, res=128)
+plot(cv.carseats$size, cv.carseats$dev, type='b', col='red', xlab="Tree size", ylab="CV Classification Error")
+dev.off()
+
+# d. bagging
+bag.carseats = randomForest(Sales~., data = Carseats.train, 
+                           mtry = ncol(Carseats.train)-1, importance = TRUE)
+yhat.bag.carseats = predict(bag.carseats, newdata = Carseats.test)
+mse.bag.carseats = mean((yhat.bag.carseats - Carseats.test$Sales)^2)
+importance(bag.carseats)
+
+# e. random forest
+m = seq(1, 10, by=1)
+mse.test = rep(0, length(m))
+
+# random forest with different m.
+for (i in 1:length(m)){
+  
+  rf.carseats = randomForest(Sales~., data = Carseats.train, 
+                             mtry = m[i], importance = TRUE)
+  yhat.test.rf = predict(rf.carseats, newdata = Carseats.test)
+  mse.test[i] = mean((yhat.test.rf-Carseats.test$Sales)^2)
+  
+}
+
+# plot m and test set MSE
+mse.plot = data.frame(m, mse.test)
+ggplot(data = mse.plot, aes(x=m))+
+  geom_line(aes(y=mse.test), col = 'red')+
+  geom_point(aes(y=mse.test), col = 'red', shape=1)+
+  ylab('MSE')+
+  xlab('Number of variables considered at each split')
+ggsave("output/ch8q8_e.png", width = 6, height = 4, dpi = 300)
+
+# consider the case m=3
+rf.carseats = randomForest(Sales~., data = Carseats.train, 
+                           mtry = 3, importance = TRUE)
+yhat.test.rf = predict(rf.carseats, newdata = Carseats.test)
+mse.test = mean((yhat.test.rf-Carseats.test$Sales)^2)
+importance(rf.carseats)
 
 ##################
 ## Chapter 8 Q9 ##
@@ -233,32 +274,22 @@ OJ.prune.pred=predict(prune.OJ, newdata=OJ.test,type="class")
 table(OJ.prune.pred, OJ.test$Purchase)
 error.prune.test = mean(OJ.prune.pred != OJ.test$Purchase) # test error rate
 
-
-
-
-
-
-
-
-
-
-
-
 ###################
 ## Chapter 8 Q10 ##
 ###################
 
 # a.
 Hitters = na.omit(Hitters) # Remove the observations for whom the salary is NA
-Hitters$lgSalary = log(Hitters$Salary) # log-transform the salaries
+Hitters$Salary = log(Hitters$Salary) # log-transform the salaries
 
 # b.
-Hitters.train = Hitters[1:200,] # training set with first 200 observations
-Hitters.test = Hitters[201:nrow(Hitters),] # test set with the remaining observations.
+train = 1:200
+Hitters.train = Hitters[train,] # training set with first 200 observations
+Hitters.test = Hitters[-train,] # test set with the remaining observations.
 
 # c-d. 
 set.seed(1)
-lambda = 10^seq(-4, -1, by=0.1)
+lambda = 10^seq(-4, 0, by=0.2)
 mse.train = rep(0, length(lambda))
 mse.test = rep(0, length(lambda))
 
@@ -284,6 +315,7 @@ ggplot(data = mse.plot, aes(x=lambda))+
   ylab('MSE')+
   xlab('Shrinkage values')+
   scale_color_hue("", labels = c(train="training set MSE", test="test set MSE"))+
+  scale_x_continuous(trans='log10')+
   theme(legend.position = "bottom", legend.box = "horizontal")
 ggsave("output/ch8q10_cd.png", width = 6, height = 4, dpi = 300)
 
@@ -295,31 +327,11 @@ png(file="output/ch8q10_f.png", width=1600, height=1600, res=300)
 summary(boost.Hitters)
 dev.off()
 
-# g. bagging 
+# g. Apply bagging to the training set
+set.seed(1)
+bag.Hitters = randomForest(Salary~., data = Hitters.train, 
+                           mtry = ncol(Hitters.train)-1, importance = TRUE)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# test MSE
+yhat.bag = predict(bag.Hitters, newdata = Hitters.test)
+mse.test.bag = mean((yhat.bag - Hitters.test$Salary)^2)
