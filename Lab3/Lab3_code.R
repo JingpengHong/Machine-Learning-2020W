@@ -40,7 +40,7 @@ data = na.omit(data)
 ## 4. Create dummies for states and the District of Columbia
 data = dummy_cols(data, select_columns = "state")
 
-# Note: Observations from Delaware (3) and District of Columbia (1) have NAs,
+# Note: Observations from New Jersey (21) and District of Columbia (1) have NAs,
 # so we only have 47 dummy variables here.
 
 ## 5. Split the sample into training (80% of the data) and test (20% of the data) sets.
@@ -50,15 +50,16 @@ data.train = data[train,]
 data.test = data[-train,]
 
 ## 6. OLS estimation
-data.train.fit = select(data.train, -c("county", "state"))
-ols = lm(deathspc ~., data = data.train.fit)
-
+data.train.fit = select(data.train, -c("county", "state", "state_Wisconsin"))
+ols = lm(deathspc ~ .-1 , data = data.train.fit)
+summary(ols)
+alias(ols)
 # MSE and R^2 in the training set
 r2.train = summary(ols)$r.sq
 mse.train = mean(ols$residuals^2)
 
 # MSE in the test set
-data.test.fit = select(data.test, -c("county", "state"))
+data.test.fit = select(data.test, -c("county", "state", "state_Wisconsin"))
 pred.test = predict(ols, data.test.fit)
 y.test = data.test.fit$deathspc
 mse.test = mean((y.test - pred.test)^2)
