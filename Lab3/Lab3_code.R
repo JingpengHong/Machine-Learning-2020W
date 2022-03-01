@@ -53,7 +53,7 @@ data.test = data[-train,]
 data.train.fit = select(data.train, -c("county", "state", "state_Wisconsin"))
 ols = lm(deathspc ~ .-1 , data = data.train.fit)
 summary(ols)
-alias(ols)
+
 # MSE and R^2 in the training set
 r2.train = summary(ols)$r.sq
 mse.train = mean(ols$residuals^2)
@@ -80,7 +80,9 @@ ridge.mod=glmnet(x, y, alpha=0, lambda=grid) # glmnet() standardizes the variabl
 # b. 10-fold cross-validation
 ridge.cv.out = cv.glmnet(x, y, alpha=0, lambda=grid)
 # c.plot
+png(file="output/ridge_cv.png", width=1600, height=800, res=128)
 plot(ridge.cv.out)
+dev.off()
 # d. choosing the optimal value
 ridge.bestlam = ridge.cv.out$lambda.min
 # e. re-estimate using the optimal lambda
@@ -92,7 +94,9 @@ lasso.mod=glmnet(x, y, alpha=1, lambda=grid)
 # b. 10-fold cross-validation
 lasso.cv.out = cv.glmnet(x, y, alpha=1, lambda=grid)
 # c.plot
+png(file="output/lasso_cv.png", width=1600, height=800, res=128)
 plot(lasso.cv.out)
+dev.off()
 # d. choosing the optimal value
 lasso.bestlam = lasso.cv.out$lambda.min
 # e. re-estimate using the optimal lambda
@@ -100,16 +104,33 @@ lasso.bestmod = glmnet(x, y, alpha=1, lambda=lasso.bestlam)
 
 ## 8. training set and test set prediction errors (MSE & R^2) for Ridge and Lasso.
 
+y.train = data.train.fit$deathspc
 x.test = model.matrix(deathspc~., data.test.fit)[,-1]
 
 ## Ridge
+# training set
+ridge.pred.train = predict(ridge.bestmod, s = ridge.bestlam, newx =x) 
+mse.train.ridge = mean((ridge.pred.train - y.train)^2)
+rss.train.ridge = sum((y.train - ridge.pred.train)^2)
+tss.train = sum((y.train - mean(y.train))^2)
+r2.train.ridge = 1 - rss.train.ridge/tss.train
+
+# test set
 ridge.pred = predict(ridge.bestmod, s = ridge.bestlam, newx =x.test) 
-mse.ridge = mean((ridge.pred - y.test)^2)
-rss.ridge = sum((y.test - ridge.pred)^2)
-r2.ridge = 1 - rss.ridge/tss
+mse.test.ridge = mean((ridge.pred - y.test)^2)
+rss.test.ridge = sum((y.test - ridge.pred)^2)
+r2.test.ridge = 1 - rss.test.ridge/tss
 
 ## Lasso
+# training set
+lasso.pred.train = predict(lasso.bestmod, s = lasso.bestlam, newx =x) 
+mse.train.lasso = mean((lasso.pred.train - y.train)^2)
+rss.train.lasso = sum((y.train - lasso.pred.train)^2)
+r2.train.lasso = 1 - rss.train.lasso/tss.train
+
+# test set
 lasso.pred = predict(lasso.bestmod, s = lasso.bestlam, newx =x.test) 
-mse.lasso = mean((lasso.pred - y.test)^2)
+mse.test.lasso = mean((lasso.pred - y.test)^2)
 rss.lasso = sum((y.test - lasso.pred)^2)
-r2.lasso = 1 - rss.lasso/tss
+r2.test.lasso = 1 - rss.lasso/tss
+
