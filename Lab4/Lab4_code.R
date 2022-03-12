@@ -5,6 +5,7 @@
 
 ## Housekeeping ##
 library(e1071)
+library(ggplot2)
 rm(list=ls())
 setwd("/Users/hongjingpeng/Desktop/Machine\ Learning/Machine-Learning-2022W/Lab4")
 
@@ -61,6 +62,7 @@ work_df$work = as.factor(work_df$work)
 ## Exercise 2.2 Cross-validation to pick the cost and kernel ##
 ###############################################################
 
+set.seed(1)
 cv_svm = function(k, data, ...) {
   # randomly assign each observation to a fold --- 
   initialization = rep(seq_len(k), nrow(data)) 
@@ -102,5 +104,111 @@ models[models$cost == cost_candidate &
   } }
 print(models)
 
+(cv_cost = models[which.min(models$error), "cost"])
+(cv_kernel = models[which.min(models$error), "kernel"])
+(cv_error = models[which.min(models$error), "error"])
 
+##################################
+## Exercise 2.3 Fit SVM on work ##
+##################################
 
+svmfit = svm(work ~ ., data = work_df, scale = FALSE,
+             cost = cv_cost, kernel = cv_kernel)
+predict_svmfit = predict(svmfit,
+                         newdata = work_df[, !(names(work_df) %in% c("work"))])
+(error <- sum(predict_svmfit != work_df[, "work"]) / length(predict_svmfit)) 
+
+#######################################
+## Exercise 2.4 Impute Work Schedule ##
+#######################################
+
+impute_work = predict(svmfit,
+                      newdata = vote_df[, !(names(vote_df) %in% c("vote"))])
+
+##################################################################
+## Exercise 2.5 Regress Voting Status on Imputed Work Schedules ##
+##################################################################
+work_numeric = as.numeric(impute_work == "flexible")
+vote_numeric = as.numeric(vote_df$vote == "vote")
+reg = lm(vote_numeric ~ work_numeric + poly(prtage, 2) + pesex, data = vote_df)
+stargazer::stargazer(reg, single.row = TRUE, header = FALSE)
+work_vote_relationship = coef(reg)["work_numeric"]
+
+##################################
+## Exercise 2.6 Bias Correction ##
+##################################
+
+compute_M = function(a, b) {
+  1 / (1 - 2 * b) * (1 - (1 - b) * b / a - (1 - b) * b / (1 - a))
+}
+
+(a <- sum(impute_work == "flexible") / length(impute_work)) 
+(b <- cv_error)
+(M <- compute_M(a, b)) 
+(work_vote_bias_correction <- work_vote_relationship / M)
+
+########################################################## 
+## Exercise 2.7 Creating Bootstrap Confidence Intervals ##
+##########################################################
+
+num_bootstrap <- 50
+bootstrap_work_vote <- vector("double", num_bootstrap) 
+bootstrap_work_vote_corrected <- vector("double", num_bootstrap) 
+for (i in seq_len(num_bootstrap)) {
+  bootstrap_index <- sample(nrow(work_df), nrow(work_df), replace = TRUE)
+  work_df_bootstrap <- work_df[bootstrap_index, ]
+  svm_bootstrap <- svm(work ~ .,
+                       data = work_df_bootstrap,
+                       scale = FALSE,
+                       cost = cv_cost,
+                       kernel = cv_kernel)
+  impute_bootstrap <- predict(svm_bootstrap,
+                              newdata = vote_df[!(names(vote_df) %in% c("vote"))])
+  a_bootstrap <- sum(impute_bootstrap == "flexible") / length(impute_bootstrap)
+  b_bootstrap <- cv_svm(k = 5,
+                        data = work_df_bootstrap,
+                        scale = FALSE,
+                        cost = cv_cost,
+                        kernel = cv_kernel)
+  impute_bootstrap_numeric <- as.numeric(impute_bootstrap == "flexible")
+  bootstrap_index <- sample(nrow(vote_df), nrow(vote_df), replace = TRUE)
+  vote_df_bootstrap <- vote_df[bootstrap_index, ]
+  vote_bootstrap <- vote_numeric[bootstrap_index]
+  work_bootstrap <- impute_bootstrap_numeric[bootstrap_index]
+  reg_bootstrap <- lm(vote_bootstrap ~ work_bootstrap + poly(prtage, 2) + pesex,
+                      data = vote_df_bootstrap)
+  bootstrap_work_vote[i] <- coef(reg_bootstrap)["work_bootstrap"]
+  M_bootstrap <- compute_M(a_bootstrap, b_bootstrap)
+  bootstrap_work_vote_corrected[i] <- bootstrap_work_vote[i] / M_bootstrap
+}
+ggplot() +
+  geom_histogram(aes(x = bootstrap_work_vote, fill = "0"), color = "white") +
+  geom_histogram(aes(x = bootstrap_work_vote_corrected, fill = "1"), color = "white") + 
+  scale_fill_manual(labels = c("naive", "bias-corrected"),
+                  values = c("coral", "cornflowerblue"),
+                  name = "") +
+  geom_vline(xintercept = work_vote_relationship) +
+  geom_vline(xintercept = work_vote_bias_correction) +
+  xlab("bootstrapped results") +
+  ylab("")
+ggsave("eshist.png", width = 6, height = 3)
+
+# lower/upper bound of 95% confidence interval
+naive_ci <- quantile(bootstrap_work_vote, prob = c(0.025, 0.975))
+corrected_ci <- quantile(bootstrap_work_vote_corrected, prob = c(0.025, 0.975))
+ggplot() +
+  geom_segment(aes(x = naive_ci["2.5%"], xend = naive_ci["97.5%"],
+                   y = "naive", yend = "naive", color = "0")) +
+  geom_point(aes(x = work_vote_relationship, y = "naive", color = "0")) +
+  geom_segment(aes(x = corrected_ci["2.5%"], xend = corrected_ci["97.5%"],
+                   y = "bias-corrected", yend = "bias-corrected", color = "1")) +
+  geom_point(aes(x = work_vote_bias_correction, y = "bias-corrected", color = "1")) +
+  scale_color_manual(labels = c("naive", "bias-corrected"),
+                     values = c("coral", "cornflowerblue")) +
+  xlab("bootstrapped results") +
+  ylab("") +
+  theme(legend.position = "none")
+ggsave("esinterval.png", width = 6, height = 3)
+# standard errors
+sd(bootstrap_work_vote)
+sd(bootstrap_work_vote_corrected) 
